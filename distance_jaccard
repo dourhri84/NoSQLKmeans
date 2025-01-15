@@ -1,0 +1,36 @@
+def distance_jaccard(Q1, Q2):
+    """
+    Calcule la distance de Jaccard entre deux requêtes SQL.
+
+    Args:
+        Q1 (str): Première requête SQL.
+        Q2 (str): Deuxième requête SQL.
+
+    Returns:
+        float: La distance de Jaccard entre les deux requêtes (entre 0 et 1).
+    """
+    # Extraire les attributs des deux requêtes
+    attribs_Q1 = getAttribs(Q1)
+    attribs_Q2 = getAttribs(Q2)
+
+    # Construire les ensembles d'attributs combinés
+    set_Q1 = set(attribs_Q1['select'] + attribs_Q1['where'] + attribs_Q1['order_by'])
+    set_Q2 = set(attribs_Q2['select'] + attribs_Q2['where'] + attribs_Q2['order_by'])
+
+    # Calculer l'intersection et l'union
+    intersection = len(set_Q1 & set_Q2)
+    union = len(set_Q1 | set_Q2)
+
+    # Calculer la distance de Jaccard
+    if union == 0:
+        return 0.0  # Cas particulier : si les deux ensembles sont vides
+    jaccard_distance = 1 - (intersection / union)
+
+    return jaccard_distance
+
+# Exemple d'utilisation
+Q1 = "select name, price from product where type='tv' and delivery='free' order by discount, price;"
+Q2 = "select name, type from product where delivery='free' order by price;"
+
+result = distance_jaccard(Q1, Q2)
+print(f"Distance de Jaccard entre Q1 et Q2 : {result:.2f}")
