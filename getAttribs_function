@@ -1,0 +1,55 @@
+import re
+
+def getAttribs(query):
+    """
+    Extrait les attributs utilisés dans une requête SQL de la forme 
+    "SELECT ... FROM ... WHERE ... ORDER BY ...".
+
+    Args:
+        query (str): La requête SQL sous forme de chaîne de caractères.
+
+    Returns:
+        dict: Un dictionnaire contenant trois listes :
+              - 'select': les attributs dans la clause SELECT
+              - 'where': les attributs dans la clause WHERE
+              - 'order_by': les attributs dans la clause ORDER BY
+    """
+    # Expressions régulières pour extraire les clauses
+    select_pattern = r"select (.*?) from"
+    where_pattern = r"where (.*?) order by|where (.*?)(;|$)"
+    order_by_pattern = r"order by (.*?)(;|$)"
+
+    # Initialiser les listes d'attributs
+    attributes = {
+        'select': [],
+        'where': [],
+        'order_by': []
+    }
+
+    # Extraire les attributs de la clause SELECT
+    select_match = re.search(select_pattern, query, re.IGNORECASE)
+    if select_match:
+        attributes['select'] = [attr.strip() for attr in select_match.group(1).split(',')]
+
+    # Extraire les attributs de la clause WHERE
+    where_match = re.search(where_pattern, query, re.IGNORECASE)
+    if where_match:
+        where_clause = where_match.group(1) or where_match.group(2)
+        if where_clause:
+            # Exclure les opérateurs logiques et autres mots-clés
+            attributes['where'] = [
+                word for word in re.findall(r"\b\w+\b", where_clause)
+                if word.lower() not in {'and', 'or', 'not', 'like', 'in', 'exists'}
+            ]
+
+    # Extraire les attributs de la clause ORDER BY
+    order_by_match = re.search(order_by_pattern, query, re.IGNORECASE)
+    if order_by_match:
+        attributes['order_by'] = [attr.strip() for attr in order_by_match.group(1).split(',')]
+
+    return attributes
+
+# Exemple d'utilisation
+query = "select name, price from product where type='tv' and delivery='free' order by discount, price;"
+attributes = getAttribs(query)
+print("Attributs extraits :", attributes)
