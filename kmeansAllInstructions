@@ -1,0 +1,146 @@
+query1="SELECT id, name, city FROM Airflight JOIN Airport(departure) WHERE country = 'USA' ORDER BY id;"
+query2="SELECT fullname, id, departure_date FROM Passenger JOIN Airflight JOIN airport(departure) WHERE code = 'JFK' ORDER BY fullname;"
+query3="SELECT id, manufacturer, model FROM Airflight JOIN Aircraft ORDER BY id;"
+query4="SELECT fullname, nationality, code FROM Passenger JOIN Airflight JOIN Airport(Arrival) WHERE code = 'LAX' ORDER BY fullname;"
+query5="SELECT aircraft_localized, latitude, longitude, altitude FROM Localization JOIN Airflight ON aircraft_localized = id WHERE dateLocalization = '2025-01-25' ORDER BY aircraft_localized;"
+query6="SELECT name, city, id FROM Airport JOIN Airflight WHERE country = 'France' ORDER BY name;"
+query7="SELECT fullname, departure_date, departure_time FROM Passenger JOIN Airflight WHERE departure_date = '2025-02-01' ORDER BY fullname;"
+query8="SELECT id, city, country FROM Airflight JOIN Airport(depature) WHERE city = 'New York' ORDER BY id;"
+query9="SELECT id, departure_date, model FROM Airflight JOIN Aircraft WHERE model = '737' ORDER BY departure_date;"
+query10="SELECT id, departure_time, arrival_time, name FROM Airflight JOIN Airport ORDER BY departure_time;"
+query11="SELECT fullname, nationality, code FROM Passenger JOIN Airflight JOIN Airport(arrival) WHERE nationality = 'Italian' AND code = 'LHR' ORDER BY fullname;"
+query12="SELECT name, city, manufacturer FROM Airflight JOIN Aircraft JOIN Airport(Departure) WHERE manufacturer = 'Airbus' ORDER BY name;"
+query13="SELECT fullname, id, arrival_date FROM Passenger JOIN Airflight WHERE code = 'CDG' ORDER BY fullname;"
+query14="SELECT id, departure_time, city FROM Airflight JOIN Airport(departure) WHERE city = 'Tokyo' ORDER BY departure_time;"
+
+
+queries={str(i):eval("query"+str(i)) for i in range(1,15)}
+
+
+import re
+import numpy as np
+def getAttribs(query):
+    """
+    Extracts the names of attributes used in a SQL-like query.
+    Ignores values of attributes (e.g., 'tv', 'free', 'electro').
+    Args:query (str): The SQL-like query.
+    Returns:set: A set of attribute names used in the query.
+    """
+    select_pattern = r"select (.*?) from"
+    where_pattern = r"where (.*?) order by|where (.*?)(;|$)"
+    order_by_pattern = r"order by (.*?)(;|$)"
+
+    # Initialize a set to store unique attributes
+    attributes = set()
+
+    # Extract attributes from SELECT clause
+    select_match = re.search(select_pattern, query, re.IGNORECASE)
+    if select_match:
+        attributes.update(attr.strip() for attr in select_match.group(1).split(','))
+
+    # Extract attributes from WHERE clause
+    where_match = re.search(where_pattern, query, re.IGNORECASE)
+    if where_match:
+        where_clause = where_match.group(1) or where_match.group(2)
+        if where_clause:
+            # Extract words before operators to identify attribute names
+            attributes.update(
+                word for word in re.findall(r"\b\w+\b(?=\s*[=<>!])", where_clause)
+            )
+
+    # Extract attributes from ORDER BY clause
+    order_by_match = re.search(order_by_pattern, query, re.IGNORECASE)
+    if order_by_match:
+        attributes.update(attr.strip() for attr in order_by_match.group(1).split(','))
+
+    LAQ=list(attributes)
+    LAQ.sort()
+    return LAQ
+
+def dataDictionary(queries):
+    DD=set()
+    for k in queries.keys():
+        query=queries[k]
+        DD.update(getAttribs(query))
+    LL=list(DD)
+    LL.sort()
+    return LL
+
+DD=dataDictionary(queries)
+
+def AdjacencyMatrix(queries):
+    # queries is in the form of {'1':'statementQ1 , '2':statementQ2 , ....}
+    LL=dataDictionary(queries)
+    n=len(LL) # nbr de données de notre dictionnaire
+    m=len(queries) #nbr de requetes
+    M=[[0 for j in range(n)] for i in range(m)]
+    for k in queries.keys():
+        i=int(k)-1
+        LA=getAttribs(queries[k])
+        for a in LA:
+            j=LL.index(a)
+            M[i][j]=1
+    return np.array(M)
+
+def binaryVector(k,queries):
+    LL=dataDictionary(queries)
+    A=getAttribs(queries[k])
+    V=[0]*len(LL)
+    for a in A:
+        j=LL.index(a)
+        V[j]=1
+    return V
+
+def jaccard_dist(Q1, Q2):
+    """
+    Computes the Jaccard distance between two SQL-like queries.
+
+    Args:
+        Q1 (str): First SQL query.
+        Q2 (str): Second SQL query.
+
+    Returns:
+        float: Jaccard distance (0 means identical, 1 means completely different).
+    """
+    attribs_Q1 = set(getAttribs(Q1))
+    attribs_Q2 = set(getAttribs(Q2))
+
+    # Compute the intersection and union of the attribute sets
+    intersection = len(attribs_Q1 & attribs_Q2)
+    union = len(attribs_Q1 | attribs_Q2)
+
+    # Compute the Jaccard distance
+    return 1 - (intersection / union) if union != 0 else 0.0
+
+def centroide(Q,I):
+    '''Q is the dictionary of queries, I is the keys of queries in  which we want calculate the centroide
+    The centroide is calculated as a representative set of attributes that best describes all queries in the cluster.
+    This set represents the shared attributes in a query cluster
+    1)For each query q in the cluster, use the getAttribs(q) function to retrieve the attributes.
+    2) Represent each query as a binary vector where each column corresponds to a unique attribute.
+        Exemple :
+        Dictionnaire d’attributs : ['name', 'price', 'type', 'city']
+        Requête 1 : SELECT name, price FROM products → [1, 1, 0, 0]
+        Requête 2 : SELECT type, city FROM airports → [0, 0, 1, 1]
+    3) Calculate the mean vector: add the vectors of the cluster queries and divide by the number of queries to obtain a mean vector (components between 0 and 1).
+    4) Building the centroid: attributes whose mean component is greater than or equal to a threshold (e.g. ≥0.5) are included in the centroid.
+    '''
+    m=len(Q)
+    n=len(I)
+    M=[]
+    for k in I:
+        M.append(binaryVector(k,queries))
+    M=np.array(M)
+    C=[(M[:,j]).mean() for j in range(m)]
+    return C
+
+def plus_proche(q,Q):
+    #q is the key of a query q, Q is the dict of queries
+    m=len(Q) #number of queries
+    i=int(q)
+    d=float("inf")
+    for j in range(1,m+1):
+        if j!=i and jaccard_dist(Q[q],Q[str(j)])<d:
+            d=jaccard_dist(Q[q],Q[str(j)])
+            i=j
+    return i
