@@ -1,7 +1,8 @@
 QUERY Q1, "List of aircraft manufactured in period a-A by manufacturer M" AS
 SELECT aircraftid,manufacturer,model,capacity,year
 FROM Aircraft
-WHERE manufacturer=%M% and year>=%y% and year<=%Y%;
+WHERE manufacturer=%M% and year>=%y% and year<=%Y%
+ORDER BY year ASC;
 
 QUERY Q2, "Detailed information about a passenger knowing his passport number" AS
 SELECT fullName,birthDate,nationality,sex
